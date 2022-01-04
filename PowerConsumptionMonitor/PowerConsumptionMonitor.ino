@@ -1,21 +1,23 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include "EmonLib.h"
+#include "ESP.h"
 #include "config.h"
 
 WebServer httpServer(80);
 EnergyMonitor emon1;
+double amps = 0;
 
 void handle_request() {
-    double amps = emon1.calcIrms(1480);
+    amps = emon1.calcIrms(1480);
     Serial.println(amps);
     
-    String HTMLData = "current{label=\"phase1\"} " + String(amps);
-    httpServer.send(200, "text/html", HTMLData);
+    httpServer.send(200, "text/html", "current{label=\"phase1\"} " + String(amps));
     
     digitalWrite(INDICATE_PIN, HIGH);
     delay(10);
     digitalWrite(INDICATE_PIN, LOW);
+    Serial.println(ESP.getFreeHeap());
 } 
 
 void setup() {
@@ -26,11 +28,13 @@ void setup() {
     while (!Serial) {}
     Serial.println("Tring to connect to Wifi SSID: ");
     Serial.println(ssid);
-  
+
+    WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
+    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
+        Serial.println("WiFi Connect Failed! Rebooting...");
         delay(1000);
-        Serial.print(".");
+        ESP.restart();
     }
     Serial.println("");
     Serial.println("WiFi connected successfully");
@@ -46,5 +50,6 @@ void setup() {
 }
 
 void loop() {
-  httpServer.handleClient();
+    httpServer.handleClient();
+    delay(10);
 }
